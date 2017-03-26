@@ -13,19 +13,61 @@ Aqui el codigo:
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266HTTPClient.h>
 
+
+// (INICIO) AQUI EL "METODO" PARA LOS DATOS
+
+#include "DHT.h"
+
+#define DHTPIN 2     // what digital pin we're connected to
+
+// Uncomment whatever type you're using!
+#define DHTTYPE DHT11   // DHT 11
+//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+//#define DHTTYPE DHT21   // DHT 21 (AM2301)
+
+// Connect pin 1 (on the left) of the sensor to +5V
+// NOTE: If using a board with 3.3V logic like an Arduino Due connect pin 1
+// to 3.3V instead of 5V!
+// Connect pin 2 of the sensor to whatever your DHTPIN is
+// Connect pin 4 (on the right) of the sensor to GROUND
+// Connect a 10K resistor from pin 2 (data) to pin 1 (power) of the sensor
+
+// Initialize DHT sensor.
+// Note that older versions of this library took an optional third parameter to
+// tweak the timings for faster processors.  This parameter is no longer needed
+// as the current DHT reading algorithm adjusts itself to work on faster procs.
+DHT dht(DHTPIN, DHTTYPE);
+
+//void setup() {
+//  Serial.begin(9600);
+//  Serial.println("DHTxx test!");
+//
+//  dht.begin();
+//}
+
+
+
+//(FIN) "METODO" PARA LOS DATOS
+
+
+
+
+
+
+
 ESP8266WiFiMulti WiFiMulti;
 
 //Constants
 const unsigned long SEND_Timer = 5000;  //Delay between SEND updates, 5000 milliseconds
 const unsigned int SENTVARS = 4;  //Number of sensor vars sent to REST Web App, (idHome, Temp & Humid, TimeStamp)
-const char* SSID = "TP-LINK"; //WiFi SSID, change nombre-wifi por la red propia
-const char* PASSWORD = "labtel1234"; //WiFi Pass, coloque el password real
+const char* SSID = "MUNERA"; //WiFi SSID, change nombre-wifi por la red propia
+const char* PASSWORD = "43597213"; //WiFi Pass, coloque el password real
 const char* HOST = "http://iotserver1.dis.eafit.edu.co";  //REST Web Host
 
 String appName = "/weather";
 String serviceSaveSensors = "/saveSensors";  //Name of the service SAVESENSORS
 String serviceGetTime = "/getTime";  //Name of the service GETTIME
-char* propertyNames[] = {"idhome", "temp", "humid", "timestamp"}; //Vector Var names 
+char* propertyNames[] = {"idhome", "temp", "humid", "timestamp"}; //Vector Var names
 float propertyValues[SENTVARS]; //Vector for Var values
 unsigned long lastConnectionTime = 0; //Last time you connected to the server, in milliseconds
 
@@ -110,11 +152,35 @@ void setup() {
 
 }
 
+
+
+//Aqui junte ambos loops, empezando por el de HD.. TAL COSA jeje
 void loop() {
+  // Wait a few seconds between measurements.
+  delay(2000);
+
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(h) || isnan(t) || isnan(f)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  // Compute heat index in Fahrenheit (the default)
+  float hif = dht.computeHeatIndex(f, h);
+  // Compute heat index in Celsius (isFahreheit = false)
+  float hic = dht.computeHeatIndex(t, h, false);
 
   if (millis() - lastConnectionTime > SEND_Timer) {
-  double  t = 23.1; // example, replace by real var sensor
-  double  h = 55.0; // example, replace by real var sensor
+    //DATOS FIJOS, NO ME SIRVEN  float t = 23.1; // example, replace by real var sensor
+    //DATOS FIJOS, NO ME SIRVEN  float h = 55.0; // example, replace by real var sensor
     Serial.print(" Temperature: ");
     Serial.println(t);
     Serial.print("Humidity: ");
@@ -124,7 +190,7 @@ void loop() {
     propertyValues[1] = t;
     propertyValues[2] = h;
     propertyValues[3] = 2017; // replace by webGetTime() (string type)
-    
+
     SEND(SENTVARS, propertyNames, propertyValues);
     lastConnectionTime = millis();
   }
